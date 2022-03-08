@@ -7,6 +7,7 @@ type Value = u32;
 enum Opcode {
     Return,
     Constant(u8),
+    Litteral(u16), // Store directly value
 }
 
 impl std::fmt::Display for Opcode {
@@ -14,7 +15,11 @@ impl std::fmt::Display for Opcode {
         let s = match self {
             Opcode::Return => "RETURN",
             Opcode::Constant(c) => {
-                write!(f, "constant {}", c)?;
+                write!(f, "CONSTANT {}", c)?;
+                return fmt::Result::Ok(());
+            }
+            Opcode::Litteral(v) => {
+                write!(f, "LITERRAL {}", v)?;
                 return fmt::Result::Ok(());
             }
         };
@@ -22,25 +27,10 @@ impl std::fmt::Display for Opcode {
     }
 }
 
-struct ValuePool {
-    values: Vec<Value>,
-}
-
-impl ValuePool {
-    fn new() -> ValuePool {
-        ValuePool {
-            values: Vec::with_capacity(4),
-        }
-    }
-    // Write an opcode, one at a time.
-    fn write_constant(&mut self, val: Value) {
-        self.values.push(val)
-    }
-}
-
 struct Chunk {
     // Well a vec is the direct translation of the "growable code zone" in the book.
     code: Vec<Opcode>,
+    values: Vec<Value>,
     lines: Vec<u32>,
 }
 
@@ -48,10 +38,14 @@ impl Chunk {
     fn new() -> Chunk {
         Chunk {
             code: Vec::with_capacity(8),
+            values: Vec::with_capacity(4),
             lines: Vec::with_capacity(8),
         }
     }
 
+    fn write_value(&mut self, v: Value) {
+        self.values.push(v);
+    }
     // Write an opcode, one at a time.
     fn write_opcode(&mut self, op: Opcode, line: u32) {
         self.code.push(op);
@@ -60,7 +54,7 @@ impl Chunk {
 
     // Disassemble a chunck and dump it.
     fn dissemble(&self, name: &str) -> String {
-        format!("=== {} ===\n{}\n========", name, self)
+        format!("=== {} ===\n{}========", name, self)
     }
 }
 
@@ -69,7 +63,12 @@ impl std::fmt::Display for Chunk {
         assert!(self.lines.len() <= self.code.len());
         for (offset, op) in self.code.iter().enumerate() {
             let line = self.lines[offset];
-            write!(f, "{:04} {:<16} | {}", offset, op, line)?;
+            write!(f, "{:04}:ln {} ", offset, line)?;
+            match op {
+                &Opcode::Constant(i) => write!(f, "{} {}", op, self.values[i as usize])?,
+                _ => write!(f, "{}", op)?,
+            }
+            write!(f, "\n")?;
         }
         fmt::Result::Ok(())
     }
@@ -77,8 +76,10 @@ impl std::fmt::Display for Chunk {
 
 fn main() {
     println!("Let's do a virtual machine!");
-    let ret = Opcode::Return;
     let mut code = Chunk::new();
-    code.write_opcode(ret, 1);
+    code.write_opcode(Opcode::Return, 1);
+    code.write_value(42);
+    code.write_opcode(Opcode::Constant(0), 2);
+    code.write_opcode(Opcode::Litteral(1152), 2);
     println!("{}", code.dissemble("test"));
 }
