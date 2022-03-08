@@ -33,13 +33,16 @@ impl Chunk {
 
     // Disassemble a chunck and dump it.
     fn dissemble(&self) -> String {
-        format!("=== %s ===\n{}", self)
+        format!("=== %s ===\n{} ========", self)
     }
 }
 
 impl std::fmt::Display for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        for (offset, &op) in self.code.iter().enumerate() {
+            write!(f, "{:04} {}", offset, op)?;
+        }
+        fmt::Result::Ok(())
     }
 }
 
