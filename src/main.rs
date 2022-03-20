@@ -1,4 +1,5 @@
 use core::fmt;
+use std::ops::RangeBounds;
 
 type Value = u32;
 
@@ -30,7 +31,7 @@ struct Chunk {
     // Well a vec is the direct translation of the "growable code zone" in the book.
     code: Vec<Opcode>,
     values: Vec<Value>,
-    lines: Vec<(u8,u16)>, // repeat + lines
+    lines: Vec<(u8, u16)>, // repeat + lines
 }
 
 impl Chunk {
@@ -51,8 +52,8 @@ impl Chunk {
         match self.lines.last_mut() {
             Some((repeat, last)) if *last == line => {
                 *repeat += 1;
-            },
-            _ => self.lines.push((1, line))
+            }
+            _ => self.lines.push((1, line)),
         }
     }
 
@@ -63,16 +64,17 @@ impl Chunk {
 }
 
 fn get_line(lines: &[(u8, u16)], idx: usize) -> Option<u16> {
-    let mut count = 0;
-    let mut last = 0;
+    // Assertion : lines.iter().map(|(r, _), r).sum() == idx
+    // partial sum of rep >= idx.
+    let mut count = 0usize;
     for (rep, line) in lines.iter() {
-        if count == idx {
+        let up = count + (*rep as usize);
+        if count == idx || (count..up).contains(&idx) {
             return Some(*line);
         }
-        last = *line;
         count += *rep as usize;
     }
-    Some(last)
+    None
 }
 
 impl std::fmt::Display for Chunk {
@@ -98,5 +100,10 @@ fn main() {
     code.write_value(42);
     code.write_opcode(Opcode::Constant(0), 2);
     code.write_opcode(Opcode::Litteral(1152), 2);
+    code.write_opcode(Opcode::Return, 3);
+
+    code.write_opcode(Opcode::Return, 4);
+    code.write_opcode(Opcode::Return, 4);
+    code.write_opcode(Opcode::Return, 4);
     println!("{}", code.dissemble("test"));
 }
