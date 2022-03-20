@@ -1,5 +1,4 @@
 use core::fmt;
-use std::fmt::write;
 
 type Value = u32;
 
@@ -31,7 +30,7 @@ struct Chunk {
     // Well a vec is the direct translation of the "growable code zone" in the book.
     code: Vec<Opcode>,
     values: Vec<Value>,
-    lines: Vec<u32>,
+    lines: Vec<(u8,u16)>, // repeat + lines
 }
 
 impl Chunk {
@@ -47,9 +46,14 @@ impl Chunk {
         self.values.push(v);
     }
     // Write an opcode, one at a time.
-    fn write_opcode(&mut self, op: Opcode, line: u32) {
+    fn write_opcode(&mut self, op: Opcode, line: u16) {
         self.code.push(op);
-        self.lines.push(line);
+        match self.lines.last_mut() {
+            Some((repeat, last)) if *last == line => {
+                *repeat += 1;
+            },
+            _ => self.lines.push((1, line))
+        }
     }
 
     // Disassemble a chunck and dump it.
@@ -58,11 +62,24 @@ impl Chunk {
     }
 }
 
+fn get_line(lines: &[(u8, u16)], idx: usize) -> Option<u16> {
+    let mut count = 0;
+    let mut last = 0;
+    for (rep, line) in lines.iter() {
+        if count == idx {
+            return Some(*line);
+        }
+        last = *line;
+        count += *rep as usize;
+    }
+    Some(last)
+}
+
 impl std::fmt::Display for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         assert!(self.lines.len() <= self.code.len());
         for (offset, op) in self.code.iter().enumerate() {
-            let line = self.lines[offset];
+            let line = get_line(&self.lines, offset).unwrap();
             write!(f, "{:04}:ln {} ", offset, line)?;
             match op {
                 &Opcode::Constant(i) => write!(f, "{} {}", op, self.values[i as usize])?,
