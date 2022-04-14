@@ -1,11 +1,11 @@
 use core::fmt;
-use std::ops::RangeBounds;
 
-type Value = u32;
+type Value = f64;
 
 #[derive(Debug)]
 enum Opcode {
     Return,
+    Negate,
     Constant(u8),
     Litteral(u16), // Store directly value
 }
@@ -13,6 +13,7 @@ enum Opcode {
 impl std::fmt::Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
+            Opcode::Negate => "NEGATE",
             Opcode::Return => "RETURN",
             Opcode::Constant(c) => {
                 write!(f, "CONSTANT {}", c)?;
@@ -93,17 +94,62 @@ impl std::fmt::Display for Chunk {
     }
 }
 
+struct VirtualMachine {
+    chunk: Chunk,
+    stack: Vec<Value>,
+    //ip: usize,
+}
+
+#[derive(Debug)]
+enum InterpretError {
+    Compile,
+    Runtime,
+    StackUnderflow
+}
+
+impl VirtualMachine {
+    fn new(chunk: Chunk) -> VirtualMachine {
+        VirtualMachine { chunk, stack: Vec::with_capacity(256) }
+    }
+
+    fn run(mut self) -> Result<(), InterpretError> {
+        let mut ip = 0;
+        loop {
+            let opcode = &self.chunk.code.get(ip).ok_or(InterpretError::Runtime)?;
+            match opcode {
+                Opcode::Negate => {
+                    let a = self.stack.pop().ok_or(InterpretError::StackUnderflow)?;
+                    self.stack.push(-a);
+                }
+                Opcode::Return => {
+                    let ret = self.stack.pop().ok_or(InterpretError::StackUnderflow)?;
+                    println!("{}", ret);
+                    return Ok(())
+                },
+                Opcode::Constant(n) => {
+                    let constant = self.chunk.values[*n as usize];
+                    self.stack.push(constant);
+                    println!("{}", constant)
+                },
+                Opcode::Litteral(litteral) => {
+                    self.stack.push(*litteral as Value);
+                    println!("{}", litteral)
+                },
+
+                _ => unimplemented!(),
+            }
+            ip += 1;
+        }
+    }
+}
+
 fn main() {
     println!("Let's do a virtual machine!");
     let mut code = Chunk::new();
-    code.write_opcode(Opcode::Return, 1);
-    code.write_value(42);
+    code.write_value(42.);
     code.write_opcode(Opcode::Constant(0), 2);
     code.write_opcode(Opcode::Litteral(1152), 2);
     code.write_opcode(Opcode::Return, 3);
-
-    code.write_opcode(Opcode::Return, 4);
-    code.write_opcode(Opcode::Return, 4);
-    code.write_opcode(Opcode::Return, 4);
-    println!("{}", code.dissemble("test"));
+    let vm = VirtualMachine::new(code);
+    vm.run().expect("Whops?");
 }
