@@ -6,6 +6,10 @@ type Value = f64;
 enum Opcode {
     Return,
     Negate,
+    Add,
+    Sub,
+    Mul,
+    Div,
     Constant(u8),
     Litteral(u16), // Store directly value
 }
@@ -23,6 +27,10 @@ impl std::fmt::Display for Opcode {
                 write!(f, "LITERRAL {}", v)?;
                 return fmt::Result::Ok(());
             }
+            Opcode::Add => "ADD",
+            Opcode::Sub => "SUB",
+            Opcode::Mul => "MUL",
+            Opcode::Div => "DIV",
         };
         write!(f, "{}", s)
     }
@@ -104,41 +112,66 @@ struct VirtualMachine {
 enum InterpretError {
     Compile,
     Runtime,
-    StackUnderflow
+    StackUnderflow,
 }
 
 impl VirtualMachine {
     fn new(chunk: Chunk) -> VirtualMachine {
-        VirtualMachine { chunk, stack: Vec::with_capacity(256) }
+        VirtualMachine {
+            chunk,
+            stack: Vec::with_capacity(256),
+        }
     }
 
+    #[inline]
+    fn exec_binop(stack: &mut Vec<Value>, op: &Opcode) -> Result<(), InterpretError> {
+        let a = stack.pop().ok_or(InterpretError::StackUnderflow)?;
+        let b = stack.pop().ok_or(InterpretError::StackUnderflow)?;
+        let result = match op {
+            Opcode::Add => a + b,
+            Opcode::Sub => b - a,
+            Opcode::Div => b / a,
+            Opcode::Mul => a * b,
+            _ => unreachable!(),
+        };
+        stack.push(result);
+        Ok(())
+    }
     fn run(mut self) -> Result<(), InterpretError> {
+        println!("{}", self.chunk.dissemble("debug"));
         let mut ip = 0;
         loop {
             let opcode = &self.chunk.code.get(ip).ok_or(InterpretError::Runtime)?;
             match opcode {
+                Opcode::Add | Opcode::Mul | Opcode::Div | Opcode::Sub => {
+                    Self::exec_binop(&mut self.stack, opcode)?
+                }
                 Opcode::Negate => {
-                    let a = self.stack.pop().ok_or(InterpretError::StackUnderflow)?;
-                    self.stack.push(-a);
+                    let a = self
+                        .stack
+                        .last_mut()
+                        .ok_or(InterpretError::StackUnderflow)?;
+                    *a = -*a;
                 }
                 Opcode::Return => {
                     let ret = self.stack.pop().ok_or(InterpretError::StackUnderflow)?;
                     println!("{}", ret);
-                    return Ok(())
-                },
+                    return Ok(());
+                }
                 Opcode::Constant(n) => {
                     let constant = self.chunk.values[*n as usize];
                     self.stack.push(constant);
                     println!("{}", constant)
-                },
+                }
                 Opcode::Litteral(litteral) => {
                     self.stack.push(*litteral as Value);
                     println!("{}", litteral)
-                },
+                }
 
                 _ => unimplemented!(),
             }
             ip += 1;
+            println!("{:?}", self.stack);
         }
     }
 }
@@ -147,9 +180,11 @@ fn main() {
     println!("Let's do a virtual machine!");
     let mut code = Chunk::new();
     code.write_value(42.);
-    code.write_opcode(Opcode::Constant(0), 2);
+    code.write_opcode(Opcode::Constant(0), 1);
+    code.write_opcode(Opcode::Negate, 2);
     code.write_opcode(Opcode::Litteral(1152), 2);
     code.write_opcode(Opcode::Return, 3);
+
     let vm = VirtualMachine::new(code);
     vm.run().expect("Whops?");
 }
