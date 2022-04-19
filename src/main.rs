@@ -1,4 +1,5 @@
 use core::fmt;
+use std::{env::args, path::Path};
 
 type Value = f64;
 
@@ -112,6 +113,7 @@ struct VirtualMachine {
 enum InterpretError {
     Compile,
     Runtime,
+    STDINnError,
     StackUnderflow,
 }
 
@@ -126,17 +128,17 @@ impl VirtualMachine {
     #[inline]
     fn exec_binop(stack: &mut Vec<Value>, op: &Opcode) -> Result<(), InterpretError> {
         let a = stack.pop().ok_or(InterpretError::StackUnderflow)?;
-        let b = stack.pop().ok_or(InterpretError::StackUnderflow)?;
-        let result = match op {
-            Opcode::Add => a + b,
-            Opcode::Sub => b - a,
-            Opcode::Div => b / a,
-            Opcode::Mul => a * b,
+        let b = stack.last_mut().ok_or(InterpretError::StackUnderflow)?;
+        match op {
+            Opcode::Add => *b += a,
+            Opcode::Sub => *b -= a,
+            Opcode::Div => *b /= a,
+            Opcode::Mul => *b *= a,
             _ => unreachable!(),
-        };
-        stack.push(result);
+        }
         Ok(())
     }
+
     fn run(mut self) -> Result<(), InterpretError> {
         println!("{}", self.chunk.dissemble("debug"));
         let mut ip = 0;
@@ -174,17 +176,48 @@ impl VirtualMachine {
             println!("{:?}", self.stack);
         }
     }
+
+    fn compile(&mut self, code: &str) -> Result<Chunk, InterpretError> {
+        unimplemented!()
+    }
+
+    fn run_file<P: AsRef<Path>>(&mut self, source_code: P) -> Result<(), InterpretError> {
+        let code = std::fs::read_to_string(source_code).expect("Cannot found file?!");
+        let chunk = self.compile(&code);
+        unimplemented!()
+    }
+
+    fn eval(&mut self, code: &str) -> Result<(), InterpretError> {
+        unimplemented!()
+    }
+    
+    fn repl(mut self) -> Result<(), InterpretError> {
+        let mut buffer = String::with_capacity(1024);
+        loop {
+            print!(">>>");
+            std::io::stdin().read_line(&mut buffer).map_err(|_| InterpretError::STDINnError)?;
+            println!("");
+            self.eval(&buffer)?;
+        }
+    }
 }
 
 fn main() {
-    println!("Let's do a virtual machine!");
     let mut code = Chunk::new();
     code.write_value(42.);
     code.write_opcode(Opcode::Constant(0), 1);
     code.write_opcode(Opcode::Negate, 2);
     code.write_opcode(Opcode::Litteral(1152), 2);
-    code.write_opcode(Opcode::Return, 3);
-
-    let vm = VirtualMachine::new(code);
-    vm.run().expect("Whops?");
+    code.write_opcode(Opcode::Add, 3);
+    code.write_opcode(Opcode::Return, 4);
+    let mut vm = VirtualMachine::new(code);
+    let mut args = args();
+    if (args.len()) == 1 {
+        vm.repl().expect("Whops REPL ERROR");
+    } else if args.len() == 2 {
+        let file = args.next().expect("Missing filepath");
+        vm.run_file(&file).expect("Whops Compile/Interp ERROR");
+    } else {
+        println!("Usage: rlox [path]");
+    }
 }
