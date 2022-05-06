@@ -1,9 +1,238 @@
 use core::fmt;
-use std::{env::args, path::Path};
+use std::{
+    env::args,
+    iter::{Peekable, Scan},
+    path::Path,
+    str::Chars,
+};
 
 type Value = f64;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
+enum Token {
+    /// (
+    LeftParens,
+    /// )
+    RightParens,
+    /// {
+    LeftBrace,
+    /// }
+    RightBrace,
+    /// ,
+    Comma,
+    /// .
+    Dot,
+    /// -
+    Minus,
+    /// +
+    Plus,
+    /// ;
+    Semicolon,
+    /// /
+    Slash,
+    /// *
+    Star,
+
+    /// !
+    Bang,
+    /// !=
+    BangEqual,
+    /// =
+    Equal,
+    /// ==
+    EqualEqual,
+    /// >
+    Greater,
+    /// <=
+    GreaterEqual,
+    /// <
+    Lesser,
+    /// >=
+    LesserEqual,
+
+    // Litterals
+    /// ???
+    Identifier,
+    /// "[.]*"
+    String,
+    /// 0-9
+    Number,
+
+    // KEYWORDS
+    /// and
+    And,
+    /// or
+    Or,
+    /// struct / class
+    Struct,
+    /// if
+    If,
+    /// else
+    Else,
+    /// true
+    True,
+    /// false
+    False,
+    /// Function
+    Fun,
+    /// Loop
+    Loop,
+    /// While
+    While,
+    /// For
+    For,
+    /// Nil
+    Nil,
+    /// Return
+    Return,
+    /// let
+    Let,
+    /// print
+    Print,
+    /*
+    Class,
+    This,
+    Super
+     */
+}
+
+struct Scanner<'a> {
+    code: &'a [u8],
+    cursor: usize,
+    line: usize,
+}
+
+impl<'a> Scanner<'a> {
+    fn new(code: &'a str) -> Scanner {
+        Scanner {
+            code: code.as_bytes(),
+            cursor: 0,
+            // end?
+            line: 1,
+        }
+    }
+
+    fn whitespaces_and_comments(&mut self) {
+        while let Some(c) = self.code.get(self.cursor) {
+            match c {
+                b' ' | b'\r' | b'\t' => {
+                    self.cursor += 1;
+                    break;
+                }
+                b'\n' => {
+                    self.line += 1;
+                }
+                b'/' => {
+                    if let Some(b'/') = self.code.get(self.cursor + 1) {
+                        self.cursor += 1;
+                        while let Some(nomnom) = self.code.get(self.cursor + 1) {
+                            match nomnom {
+                                b'\n' => break,
+                                _ => self.cursor += 1,
+                            }
+                            self.cursor += 1;
+                        }
+                    } else {
+                        return;
+                    }
+                }
+                _ => return,
+            }
+        }
+    }
+
+    fn skip_whitespaces(&mut self) {
+        self.cursor += self.code.iter().take_while(|c| **c == b' ').count();
+    }
+
+    fn string(&mut self) -> Result<Token, ScanError> {
+        // let next = self
+        // .code
+        // .get(self.cursor + 1)
+        // .ok_or(ScanError::UnmatchedString)?;
+
+        let start = self.cursor;
+        while let Some(c) = self.code.get(self.cursor + 1) {
+            if *c == b'\n' {
+                self.line += 1;
+            } else if *c == b'"' {
+                break;
+            }
+            self.cursor += 1;
+        }
+        if start == self.cursor {
+            return Err(ScanError::UnmatchedString);
+        }
+        self.cursor += 1;
+        Ok(Token::String)
+    }
+
+    fn numbers(&mut self) -> Result<Token, ScanError> {
+        let mut iter = self.code.iter().peekable();
+        while let Some(d) = iter.peek() {
+            if d.is_ascii_digit() {
+                iter.next();
+                self.cursor += 1;
+            } else {
+                break;
+            }
+        }
+
+        if iter.next() == Some(&b'.') {
+            self.cursor += 1;
+            while let Some(d) = iter.next() {
+                if d.is_ascii_digit() {
+                    self.cursor += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+        Ok(Token::Number)
+    }
+
+    fn scan_token(&mut self) -> Result<(Token, usize, usize), ScanError> {
+        // TODO: Update lines.
+        // TODO: Manage comments
+
+        self.whitespaces_and_comments();
+        let c = self.code.get(self.cursor).ok_or(ScanError::End)?;
+
+        //let mut code = code.peekable();
+        let tok = match c {
+            b'0'..=b'9' => self.numbers()?,
+            b'(' => Token::LeftParens,
+            b')' => Token::RightParens,
+            b'{' => Token::LeftBrace,
+            b'}' => Token::RightBrace,
+            b';' => Token::Semicolon,
+            b',' => Token::Comma,
+            b'.' => Token::Dot,
+            b'-' => Token::Minus,
+            b'+' => Token::Plus,
+            b'/' => Token::Slash,
+            b'*' => Token::Star,
+            //    b'!' => if let Some(_) = code.next_if_eq(&'=') { Token::BangEqual } else { Token::Bang },
+            //    b'=' => if let Some(_) = code.next_if_eq(&'=') { Token::EqualEqual } else { Token::Equal },
+            //    b'<' => if let Some(_) = code.next_if_eq(&'=') { Token::LesserEqual } else { Token::Lesser },
+            //    b'>' => if let Some(_) = code.next_if_eq(&'=') { Token::GreaterEqual } else { Token::Greater },
+            b'"' => self.string()?,
+
+            _ => return Err(ScanError::UnknownToken),
+        };
+
+        Result::Ok((tok, self.line, self.cursor))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ScanError {
+    UnknownToken,
+    UnmatchedString,
+    End,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 enum Opcode {
     Return,
     Negate,
@@ -178,6 +407,13 @@ impl VirtualMachine {
     }
 
     fn compile(&mut self, code: &str) -> Result<Chunk, InterpretError> {
+        let mut line = 0; // there is no line 0 :)
+        let mut code = code.chars();
+
+        loop {
+            unimplemented!()
+            //let tok = scan_token(&mut code).expect("Scan Whopsy");
+        }
         unimplemented!()
     }
 
@@ -190,12 +426,14 @@ impl VirtualMachine {
     fn eval(&mut self, code: &str) -> Result<(), InterpretError> {
         unimplemented!()
     }
-    
+
     fn repl(mut self) -> Result<(), InterpretError> {
         let mut buffer = String::with_capacity(1024);
         loop {
             print!(">>>");
-            std::io::stdin().read_line(&mut buffer).map_err(|_| InterpretError::STDINnError)?;
+            std::io::stdin()
+                .read_line(&mut buffer)
+                .map_err(|_| InterpretError::STDINnError)?;
             println!("");
             self.eval(&buffer)?;
         }
@@ -220,4 +458,79 @@ fn main() {
     } else {
         println!("Usage: rlox [path]");
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_Token_no_String() {
+        let code = r#"NoString"#;
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Err(ScanError::UnknownToken));
+    }
+
+    #[test]
+    fn test_Token_string() {
+        let code = r#""test""#;
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 5)));
+    }
+
+    #[test]
+    fn test_unmatched_string() {
+        let code = r#"""#;
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Err(ScanError::UnmatchedString));
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let code = r#""""#;
+
+        println!("{}", code);
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 0)));
+    }
+    #[test]
+    fn test_unmatched_char() {
+        let code = r#"e""#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Err(ScanError::UnknownToken));
+    }
+
+    #[test]
+    fn test_number_sigle() {
+        let code = r#"0"#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 1)));
+    }
+
+    #[test]
+    fn test_number_lenght() {
+        let code = r#"123456789"#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 9)));
+    }
+
+    #[test]
+    fn test_number_end_fractionnal() {
+        let code = r#"123456789."#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
+    }
+
+    #[test]
+    fn test_number_fractional_part() {
+        let code = r#"12345.6789"#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
+    }
+
 }
