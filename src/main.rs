@@ -116,24 +116,23 @@ impl<'a> Scanner<'a> {
     }
 
     fn whitespaces_and_comments(&mut self) {
-        while let Some(c) = self.code.get(self.cursor) {
+        while let Some(c) = self.peek() {
             match c {
                 b' ' | b'\r' | b'\t' => {
-                    self.cursor += 1;
+                    self.advance();
                     break;
                 }
                 b'\n' => {
                     self.line += 1;
+                    self.advance();
                 }
                 b'/' => {
-                    if let Some(b'/') = self.code.get(self.cursor + 1) {
-                        self.cursor += 1;
-                        while let Some(nomnom) = self.code.get(self.cursor + 1) {
+                    if let Some(b'/') = self.peek_next() {
+                        while let Some(nomnom) = self.peek() {
                             match nomnom {
                                 b'\n' => break,
-                                _ => self.cursor += 1,
-                            }
-                            self.cursor += 1;
+                                _ => self.advance(),
+                            };
                         }
                     } else {
                         return;
@@ -144,29 +143,25 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn skip_whitespaces(&mut self) {
-        self.cursor += self.code.iter().take_while(|c| **c == b' ').count();
-    }
-
     fn string(&mut self) -> Result<Token, ScanError> {
-        // let next = self
-        // .code
-        // .get(self.cursor + 1)
-        // .ok_or(ScanError::UnmatchedString)?;
-
-        let start = self.cursor;
-        while let Some(c) = self.code.get(self.cursor + 1) {
-            if *c == b'\n' {
-                self.line += 1;
-            } else if *c == b'"' {
+        while let Some(c) = self.peek_next() {
+            if *c == b'"' {
                 break;
             }
-            self.cursor += 1;
+            if *c == b'\n' {
+                self.line += 1;
+            }
+            self.advance();
         }
-        if start == self.cursor {
+
+        if self.is_at_end() {
             return Err(ScanError::UnmatchedString);
         }
-        self.cursor += 1;
+        self.advance();
+        // TODO: Hack for empty strings, it's ugly.
+        if self.cursor - self.start == 1 {
+            self.cursor += 1;
+        }
         Ok(Token::String)
     }
 
@@ -175,17 +170,17 @@ impl<'a> Scanner<'a> {
         while let Some(d) = iter.peek() {
             if d.is_ascii_digit() {
                 iter.next();
-                self.cursor += 1;
+                self.advance();
             } else {
                 break;
             }
         }
 
         if iter.next() == Some(&b'.') {
-            self.cursor += 1;
+            self.advance();
             while let Some(d) = iter.next() {
                 if d.is_ascii_digit() {
-                    self.cursor += 1;
+                    self.advance();
                 } else {
                     break;
                 }
@@ -202,7 +197,6 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier(&mut self) -> Result<Token, ScanError> {
-        self.start = self.cursor;
         loop {
             match self.peek() {
                 Some(c) if is_ascii_alphabetic_or_underscore(c) || c.is_ascii_digit() => {
@@ -262,7 +256,10 @@ impl<'a> Scanner<'a> {
         // TODO: Manage comments
 
         self.whitespaces_and_comments();
+        self.start = self.cursor;
+        // TODO: Use advance?
         let c = self.code.get(self.cursor).ok_or(ScanError::End)?;
+        //        self.cursor += 1;
 
         //let mut code = code.peekable();
         let tok = match c {
@@ -557,7 +554,7 @@ mod tests {
 
         println!("{}", code);
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 0)));
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 2)));
     }
     #[test]
     fn test_unmatched_char() {
@@ -600,12 +597,13 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_tok_if() {
-        let code = r#"if else fun"#;
+    fn test_scan_tok_real() {
+        let code = r#"if else fun "hello""#;
 
         let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::If, 1, 2)));
         assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
         assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 6)));
     }
 }
