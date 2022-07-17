@@ -1,10 +1,5 @@
 use core::fmt;
-use std::{
-    env::args,
-    iter::{Peekable, Scan},
-    path::Path,
-    str::Chars,
-};
+use std::{env::args, path::Path};
 
 type Value = f64;
 
@@ -91,13 +86,19 @@ enum Token {
     Print,
     /*
     Class,
-    This,
     Super
      */
+    TokSelf,
+}
+
+#[inline]
+fn is_ascii_alphabetic_or_underscore(c: &u8) -> bool {
+    c.is_ascii_alphabetic() || *c == b'_'
 }
 
 struct Scanner<'a> {
     code: &'a [u8],
+    start: usize,
     cursor: usize,
     line: usize,
 }
@@ -106,6 +107,8 @@ impl<'a> Scanner<'a> {
     fn new(code: &'a str) -> Scanner {
         Scanner {
             code: code.as_bytes(),
+            // Only used in ident oupsy
+            start: 0,
             cursor: 0,
             // end?
             line: 1,
@@ -191,6 +194,69 @@ impl<'a> Scanner<'a> {
         Ok(Token::Number)
     }
 
+    #[inline]
+    fn advance(&mut self) -> u8 {
+        let c = self.code[self.cursor];
+        self.cursor += 1;
+        c
+    }
+
+    fn identifier(&mut self) -> Result<Token, ScanError> {
+        self.start = self.cursor;
+        loop {
+            match self.peek() {
+                Some(c) if is_ascii_alphabetic_or_underscore(c) || c.is_ascii_digit() => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+        self.identifier_type()
+    }
+
+    fn identifier_type(&mut self) -> Result<Token, ScanError> {
+        let s = &self.code[self.start..self.cursor];
+        let tok = match s {
+            b"false" => Token::False,
+            b"true" => Token::True,
+            b"self" => Token::TokSelf,
+            b"struct" => Token::Struct,
+            b"return" => Token::Return,
+            b"loop" => Token::Loop,
+            b"fun" => Token::Fun,
+            // TODO make it a function
+            b"print" => Token::Print,
+            b"or" => Token::Or,
+            b"and" => Token::And,
+            b"for" => Token::For,
+            b"while" => Token::While,
+            b"if" => Token::If,
+            b"else" => Token::Else,
+            // TODO use Option<T>?
+            b"nil" => Token::Nil,
+            b"let" => Token::Let,
+            _ => return Err(ScanError::UnknownToken),
+        };
+        Result::Ok(tok)
+    }
+
+    #[inline]
+    fn peek(&self) -> Option<&u8> {
+        self.code.get(self.cursor)
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.cursor == self.code.len() - 1
+    }
+
+    fn peek_next(&self) -> Option<&u8> {
+        if self.is_at_end() {
+            None
+        } else {
+            self.code.get(self.cursor + 1)
+        }
+    }
+
     fn scan_token(&mut self) -> Result<(Token, usize, usize), ScanError> {
         // TODO: Update lines.
         // TODO: Manage comments
@@ -217,11 +283,11 @@ impl<'a> Scanner<'a> {
             //    b'<' => if let Some(_) = code.next_if_eq(&'=') { Token::LesserEqual } else { Token::Lesser },
             //    b'>' => if let Some(_) = code.next_if_eq(&'=') { Token::GreaterEqual } else { Token::Greater },
             b'"' => self.string()?,
-
+            b'a'..=b'z' | b'_' => self.identifier()?,
             _ => return Err(ScanError::UnknownToken),
         };
 
-        Result::Ok((tok, self.line, self.cursor))
+        Result::Ok((tok, self.line, self.cursor - self.start))
     }
 }
 
@@ -465,14 +531,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_Token_no_String() {
+    fn test_token_no_string() {
         let code = r#"NoString"#;
         let mut scan = Scanner::new(&code);
         assert_eq!(scan.scan_token(), Err(ScanError::UnknownToken));
     }
 
     #[test]
-    fn test_Token_string() {
+    fn test_token_string() {
         let code = r#""test""#;
         let mut scan = Scanner::new(&code);
         assert_eq!(scan.scan_token(), Ok((Token::String, 1, 5)));
@@ -533,4 +599,13 @@ mod tests {
         assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
     }
 
+    #[test]
+    fn test_scan_tok_if() {
+        let code = r#"if else fun"#;
+
+        let mut scan = Scanner::new(&code);
+        assert_eq!(scan.scan_token(), Ok((Token::If, 1, 2)));
+        assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
+        assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
+    }
 }
