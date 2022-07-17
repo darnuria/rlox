@@ -533,21 +533,21 @@ mod tests {
     #[test]
     fn test_token_no_string() {
         let code = r#"NoString"#;
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Err(ScanError::UnknownToken));
     }
 
     #[test]
     fn test_token_string() {
         let code = r#""test""#;
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::String, 1, 5)));
     }
 
     #[test]
     fn test_unmatched_string() {
         let code = r#"""#;
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Err(ScanError::UnmatchedString));
     }
 
@@ -556,14 +556,14 @@ mod tests {
         let code = r#""""#;
 
         println!("{}", code);
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::String, 1, 0)));
     }
     #[test]
     fn test_unmatched_char() {
         let code = r#"e""#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Err(ScanError::UnknownToken));
     }
 
@@ -571,7 +571,7 @@ mod tests {
     fn test_number_sigle() {
         let code = r#"0"#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 1)));
     }
 
@@ -579,7 +579,7 @@ mod tests {
     fn test_number_lenght() {
         let code = r#"123456789"#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 9)));
     }
 
@@ -587,7 +587,7 @@ mod tests {
     fn test_number_end_fractionnal() {
         let code = r#"123456789."#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
     }
 
@@ -595,7 +595,7 @@ mod tests {
     fn test_number_fractional_part() {
         let code = r#"12345.6789"#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
     }
 
@@ -603,7 +603,7 @@ mod tests {
     fn test_scan_tok_if() {
         let code = r#"if else fun"#;
 
-        let mut scan = Scanner::new(&code);
+        let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::If, 1, 2)));
         assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
         assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
