@@ -391,7 +391,7 @@ impl std::fmt::Display for Chunk {
                 &Opcode::Constant(i) => write!(f, "{} {}", op, self.values[i as usize])?,
                 _ => write!(f, "{}", op)?,
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         fmt::Result::Ok(())
     }
@@ -500,7 +500,7 @@ impl VirtualMachine {
             std::io::stdin()
                 .read_line(&mut buffer)
                 .map_err(|_| InterpretError::STDINnError)?;
-            println!("");
+            println!();
             self.eval(&buffer)?;
         }
     }
