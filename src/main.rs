@@ -96,6 +96,7 @@ fn is_ascii_alphabetic_or_underscore(c: &u8) -> bool {
     c.is_ascii_alphabetic() || *c == b'_'
 }
 
+#[derive(Debug)]
 struct Scanner<'a> {
     code: &'a [u8],
     start: usize,
@@ -329,6 +330,7 @@ impl std::fmt::Display for Opcode {
     }
 }
 
+#[derive(Debug)]
 struct Chunk {
     // Well a vec is the direct translation of the "growable code zone" in the book.
     code: Vec<Opcode>,
@@ -395,6 +397,7 @@ impl std::fmt::Display for Chunk {
     }
 }
 
+#[derive(Debug)]
 struct VirtualMachine {
     chunk: Chunk,
     stack: Vec<Value>,
