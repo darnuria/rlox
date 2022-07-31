@@ -252,14 +252,23 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn match_bin(&mut self, expected : u8) -> Option<()> {
+            if *self.code.get(self.cursor)? != expected {
+                None
+            } else {
+                self.cursor += 1;
+                Some(())
+            }
+    }
     fn scan_token(&mut self) -> Result<(Token, usize, usize), ScanError> {
         // TODO: Update lines.
         // TODO: Manage comments
 
         self.whitespaces_and_comments();
-        self.start = self.cursor;
+
         // TODO: Use advance?
-        let c = self.code.get(self.cursor).ok_or(ScanError::End)?;
+        //let c = self.code.get(self.cursor).ok_or(ScanError::End)?;
+        let c = self.advance();
         //        self.cursor += 1;
 
         //let mut code = code.peekable();
@@ -276,10 +285,10 @@ impl<'a> Scanner<'a> {
             b'+' => Token::Plus,
             b'/' => Token::Slash,
             b'*' => Token::Star,
-            //    b'!' => if let Some(_) = code.next_if_eq(&'=') { Token::BangEqual } else { Token::Bang },
-            //    b'=' => if let Some(_) = code.next_if_eq(&'=') { Token::EqualEqual } else { Token::Equal },
-            //    b'<' => if let Some(_) = code.next_if_eq(&'=') { Token::LesserEqual } else { Token::Lesser },
-            //    b'>' => if let Some(_) = code.next_if_eq(&'=') { Token::GreaterEqual } else { Token::Greater },
+            b'!' => if let Some(_) = self.match_bin(b'=') { Token::BangEqual } else { Token::Bang },
+            b'=' => if let Some(_) = self.match_bin(b'=') { Token::EqualEqual } else { Token::Equal },
+            b'<' => if let Some(_) = self.match_bin(b'=') { Token::LesserEqual } else { Token::Lesser },
+            b'>' => if let Some(_) = self.match_bin(b'=') { Token::GreaterEqual } else { Token::Greater },
             b'"' => self.string()?,
             b'a'..=b'z' | b'_' => self.identifier()?,
             _ => return Err(ScanError::UnknownToken),
@@ -612,5 +621,19 @@ mod tests {
         assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
         assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
         assert_eq!(scan.scan_token(), Ok((Token::String, 1, 6)));
+    }
+
+    #[test]
+    fn test_scan_math() {
+        let code = r#"+ > >= <= < =="#;
+
+        // TODO : Fix start calculation it's broken.
+        let mut scan = Scanner::new(code);
+        assert_eq!(scan.scan_token(), Ok((Token::Plus, 1, 1)));
+        assert_eq!(scan.scan_token(), Ok((Token::Greater, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::GreaterEqual, 1, 6)));
+        assert_eq!(scan.scan_token(), Ok((Token::LesserEqual, 1, 9)));
+        assert_eq!(scan.scan_token(), Ok((Token::Lesser, 1, 11)));
+        assert_eq!(scan.scan_token(), Ok((Token::EqualEqual, 1, 14)));
     }
 }
