@@ -179,7 +179,7 @@ impl<'a> Scanner<'a> {
 
         if iter.next() == Some(&b'.') {
             self.advance();
-            while let Some(d) = iter.next() {
+            for d in iter {
                 if d.is_ascii_digit() {
                     self.advance();
                 } else {
@@ -473,14 +473,18 @@ impl VirtualMachine {
     }
 
     fn compile(&mut self, code: &str) -> Result<Chunk, InterpretError> {
-        let mut line = 0; // there is no line 0 :)
-        let mut code = code.chars();
 
+        let mut scanner = Scanner::new(code);
         loop {
-            unimplemented!()
-            //let tok = scan_token(&mut code).expect("Scan Whopsy");
+            // TODO manage error real world will crash at the end of file ahah.
+            match scanner.scan_token() {
+                Ok((tok, line, start)) => {
+                    println!("tok: {tok:#?} {line} {start}");
+                }
+                Err(ScanError::End) => unimplemented!("End of file!"),
+                Err(_) => return Err(InterpretError::Compile),
+            }
         }
-        unimplemented!()
     }
 
     fn run_file<P: AsRef<Path>>(&mut self, source_code: P) -> Result<(), InterpretError> {
