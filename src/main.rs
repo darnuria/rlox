@@ -252,14 +252,26 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn match_bin(&mut self, expected : u8) -> Option<()> {
-            if *self.code.get(self.cursor)? != expected {
-                None
-            } else {
-                self.cursor += 1;
-                Some(())
-            }
+    /// Helper function derived from crafting interpreter eponnymous function.
+    /// if it match `expected` advance the cursor.
+    /// Returns None if it's impossible or not found
+    fn match_bin(&mut self, expected: u8) -> Option<()> {
+        if *self.code.get(self.cursor)? != expected {
+            None
+        } else {
+            self.cursor += 1;
+            Some(())
+        }
     }
+
+    /// Try to scan for a token one at a time.
+    ///
+    /// Internally advance the cursor on the current character.
+    ///
+    /// Returns either:
+    /// - A [Token], the line and the start position of the found token.
+    /// - A [ScanError] right now, the end of the parsing is... an error
+    /// May be changed in the future if I move to an Iterator.
     fn scan_token(&mut self) -> Result<(Token, usize, usize), ScanError> {
         // TODO: Update lines.
         // TODO: Manage comments
@@ -285,10 +297,34 @@ impl<'a> Scanner<'a> {
             b'+' => Token::Plus,
             b'/' => Token::Slash,
             b'*' => Token::Star,
-            b'!' => if let Some(_) = self.match_bin(b'=') { Token::BangEqual } else { Token::Bang },
-            b'=' => if let Some(_) = self.match_bin(b'=') { Token::EqualEqual } else { Token::Equal },
-            b'<' => if let Some(_) = self.match_bin(b'=') { Token::LesserEqual } else { Token::Lesser },
-            b'>' => if let Some(_) = self.match_bin(b'=') { Token::GreaterEqual } else { Token::Greater },
+            b'!' => {
+                if let Some(_) = self.match_bin(b'=') {
+                    Token::BangEqual
+                } else {
+                    Token::Bang
+                }
+            }
+            b'=' => {
+                if let Some(_) = self.match_bin(b'=') {
+                    Token::EqualEqual
+                } else {
+                    Token::Equal
+                }
+            }
+            b'<' => {
+                if let Some(_) = self.match_bin(b'=') {
+                    Token::LesserEqual
+                } else {
+                    Token::Lesser
+                }
+            }
+            b'>' => {
+                if let Some(_) = self.match_bin(b'=') {
+                    Token::GreaterEqual
+                } else {
+                    Token::Greater
+                }
+            }
             b'"' => self.string()?,
             b'a'..=b'z' | b'_' => self.identifier()?,
             _ => return Err(ScanError::UnknownToken),
@@ -482,7 +518,6 @@ impl VirtualMachine {
     }
 
     fn compile(&mut self, code: &str) -> Result<Chunk, InterpretError> {
-
         let mut scanner = Scanner::new(code);
         loop {
             // TODO manage error real world will crash at the end of file ahah.
