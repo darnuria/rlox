@@ -646,13 +646,23 @@ mod scanner {
 
     #[test]
     fn test_scan_tok_real() {
-        let code = r#"if else fun "hello""#;
+        let code = r#"if else fun "hello", self print and for let nil loop return while"#;
 
         let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::If, 1, 2)));
         assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
         assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
         assert_eq!(scan.scan_token(), Ok((Token::String, 1, 7)));
+        assert_eq!(scan.scan_token(), Ok((Token::Comma, 1, 1)));
+        assert_eq!(scan.scan_token(), Ok((Token::TokSelf, 1, 4)));
+        assert_eq!(scan.scan_token(), Ok((Token::Print, 1, 5)));
+        assert_eq!(scan.scan_token(), Ok((Token::And, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::For, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::Let, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::Nil, 1, 3)));
+        assert_eq!(scan.scan_token(), Ok((Token::Loop, 1, 4)));
+        assert_eq!(scan.scan_token(), Ok((Token::Return, 1, 6)));
+        assert_eq!(scan.scan_token(), Ok((Token::While, 1, 5)));
     }
 
     #[test]
