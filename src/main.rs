@@ -145,8 +145,8 @@ impl<'a> Scanner<'a> {
     }
 
     fn string(&mut self) -> Result<Token, ScanError> {
-        while let Some(c) = self.peek_next() {
-            if *c == b'"' {
+        while let Some(c) = self.peek() {
+            if *c == b'"' || self.is_at_end() {
                 break;
             }
             if *c == b'\n' {
@@ -160,9 +160,9 @@ impl<'a> Scanner<'a> {
         }
         self.advance();
         // TODO: Hack for empty strings, it's ugly.
-        if self.cursor - self.start == 1 {
-            self.cursor += 1;
-        }
+        // if self.cursor - self.start == 1 {
+        //     self.cursor += 1;
+        // }
         Ok(Token::String)
     }
 
@@ -191,10 +191,10 @@ impl<'a> Scanner<'a> {
     }
 
     #[inline]
-    fn advance(&mut self) -> u8 {
-        let c = self.code[self.cursor];
+    fn advance(&mut self) -> Option<u8> {
+        let c = *self.code.get(self.cursor)?;
         self.cursor += 1;
-        c
+        Some(c)
     }
 
     fn identifier(&mut self) -> Result<Token, ScanError> {
@@ -241,15 +241,11 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_at_end(&self) -> bool {
-        self.cursor == self.code.len() - 1
+        self.cursor == self.code.len()
     }
 
     fn peek_next(&self) -> Option<&u8> {
-        if self.is_at_end() {
-            None
-        } else {
-            self.code.get(self.cursor + 1)
-        }
+        self.code.get(self.cursor + 1)
     }
 
     /// Helper function derived from crafting interpreter eponnymous function.
@@ -277,10 +273,11 @@ impl<'a> Scanner<'a> {
         // TODO: Manage comments
 
         self.whitespaces_and_comments();
+        self.start = self.cursor;
 
         // TODO: Use advance?
         //let c = self.code.get(self.cursor).ok_or(ScanError::End)?;
-        let c = self.advance();
+        let c = self.advance().expect("End of scanning");
         //        self.cursor += 1;
 
         //let mut code = code.peekable();
@@ -533,11 +530,11 @@ impl VirtualMachine {
 
     fn run_file<P: AsRef<Path>>(&mut self, source_code: P) -> Result<(), InterpretError> {
         let code = std::fs::read_to_string(source_code).expect("Cannot found file?!");
-        let chunk = self.compile(&code);
+        let _chunk = self.compile(&code);
         unimplemented!()
     }
 
-    fn eval(&mut self, code: &str) -> Result<(), InterpretError> {
+    fn eval(&mut self, _code: &str) -> Result<(), InterpretError> {
         unimplemented!()
     }
 
@@ -575,7 +572,7 @@ fn main() {
 }
 
 #[cfg(test)]
-mod tests {
+mod scanner {
     use super::*;
 
     #[test]
@@ -587,14 +584,14 @@ mod tests {
 
     #[test]
     fn test_token_string() {
-        let code = r#""test""#;
+        let code = "\"test\"";
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 5)));
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 6)));
     }
 
     #[test]
     fn test_unmatched_string() {
-        let code = r#"""#;
+        let code = "\"";
         let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Err(ScanError::UnmatchedString));
     }
@@ -655,7 +652,7 @@ mod tests {
         assert_eq!(scan.scan_token(), Ok((Token::If, 1, 2)));
         assert_eq!(scan.scan_token(), Ok((Token::Else, 1, 4)));
         assert_eq!(scan.scan_token(), Ok((Token::Fun, 1, 3)));
-        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 6)));
+        assert_eq!(scan.scan_token(), Ok((Token::String, 1, 7)));
     }
 
     #[test]
@@ -665,10 +662,10 @@ mod tests {
         // TODO : Fix start calculation it's broken.
         let mut scan = Scanner::new(code);
         assert_eq!(scan.scan_token(), Ok((Token::Plus, 1, 1)));
-        assert_eq!(scan.scan_token(), Ok((Token::Greater, 1, 3)));
-        assert_eq!(scan.scan_token(), Ok((Token::GreaterEqual, 1, 6)));
-        assert_eq!(scan.scan_token(), Ok((Token::LesserEqual, 1, 9)));
-        assert_eq!(scan.scan_token(), Ok((Token::Lesser, 1, 11)));
-        assert_eq!(scan.scan_token(), Ok((Token::EqualEqual, 1, 14)));
+        assert_eq!(scan.scan_token(), Ok((Token::Greater, 1, 1)));
+        assert_eq!(scan.scan_token(), Ok((Token::GreaterEqual, 1, 2)));
+        assert_eq!(scan.scan_token(), Ok((Token::LesserEqual, 1, 2)));
+        assert_eq!(scan.scan_token(), Ok((Token::Lesser, 1, 1)));
+        assert_eq!(scan.scan_token(), Ok((Token::EqualEqual, 1, 2)));
     }
 }
