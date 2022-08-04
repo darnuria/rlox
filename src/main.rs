@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{env::args, path::Path};
+use std::{env::args, path::Path, fmt::{Display, Formatter}};
 
 type Value = f64;
 
@@ -336,6 +336,33 @@ enum ScanError {
     UnknownToken,
     UnmatchedString,
     End,
+}
+
+enum ParseError {
+    TooManyConstant,
+    UnclosedParens,
+    ExpectedExpression,
+}
+
+impl From<ParseError> for &'static str {
+    fn from(err: ParseError) -> Self {
+        match err {
+            ParseError::TooManyConstant => "Too many constants in one chunk.",
+            ParseError::UnclosedParens => "Expect ')' after expression.",
+            ParseError::ExpectedExpression => "Expect expression.",
+        }
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        todo!()
+    }
+}
+
+struct Parser {
+    current: Token,
+    previous: Token,
 }
 
 #[derive(Debug, PartialEq, Eq)]
