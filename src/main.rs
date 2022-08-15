@@ -1,11 +1,15 @@
 use core::fmt;
-use std::{env::args, path::Path, fmt::{Display, Formatter}};
-
+use std::str::FromStr;
+use std::{
+    env::args,
+    fmt::{Display, Formatter},
+    path::Path,
+};
 mod lexer;
 
 type Value = f64;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Token {
     /// (
     LeftParens,
@@ -15,6 +19,10 @@ pub enum Token {
     LeftBrace,
     /// }
     RightBrace,
+    /// [
+    LeftSquare,
+    /// ]
+    RightSquare,
     /// ,
     Comma,
     /// .
@@ -49,11 +57,12 @@ pub enum Token {
 
     // Litterals
     /// ???
-    Identifier,
+    //    Identifier(&'a [u8]),
+    IdentifierNoData,
     /// "[.]*"
     String,
     /// 0-9
-    Number,
+    Number(f32),
 
     // KEYWORDS
     /// and
@@ -91,6 +100,9 @@ pub enum Token {
     Super
      */
     TokSelf,
+
+    SingleComment,
+    MultiComment,
 }
 
 fn keyword_or_ident(input: &[u8]) -> Token {
@@ -113,7 +125,8 @@ fn keyword_or_ident(input: &[u8]) -> Token {
         // TODO use Option<T>?
         b"nil" => Token::Nil,
         b"let" => Token::Let,
-        _ => Token::Identifier,
+        _ => Token::IdentifierNoData,
+        //dent => Token::Identifier(ident),
     }
 }
 
@@ -213,7 +226,10 @@ impl<'a> Scanner<'a> {
                 }
             }
         }
-        Ok(Token::Number)
+        let s = unsafe { std::str::from_utf8_unchecked(&self.code[self.start..self.cursor]) };
+        Ok(Token::Number(
+            f32::from_str(s).map_err(|e| ScanError::NumberNotRecognized)?,
+        ))
     }
 
     #[inline]
@@ -340,6 +356,7 @@ impl<'a> Scanner<'a> {
 enum ScanError {
     UnknownToken,
     UnmatchedString,
+    NumberNotRecognized,
     End,
 }
 
@@ -649,7 +666,7 @@ mod scanner {
         let code = r#"0"#;
 
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 1)));
+        assert_eq!(scan.scan_token(), Ok((Token::Number(0.), 1, 1)));
     }
 
     #[test]
@@ -657,7 +674,7 @@ mod scanner {
         let code = r#"123456789"#;
 
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 9)));
+        assert_eq!(scan.scan_token(), Ok((Token::Number(123456789.), 1, 9)));
     }
 
     #[test]
@@ -665,7 +682,7 @@ mod scanner {
         let code = r#"123456789."#;
 
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
+        assert_eq!(scan.scan_token(), Ok((Token::Number(123456789.), 1, 10)));
     }
 
     #[test]
@@ -673,7 +690,7 @@ mod scanner {
         let code = r#"12345.6789"#;
 
         let mut scan = Scanner::new(code);
-        assert_eq!(scan.scan_token(), Ok((Token::Number, 1, 10)));
+        assert_eq!(scan.scan_token(), Ok((Token::Number(12345.6789), 1, 10)));
     }
 
     #[test]
