@@ -3,8 +3,8 @@ use std::{env::args, path::Path, fmt::{Display, Formatter}};
 
 type Value = f64;
 
-#[derive(Debug, PartialEq, Eq)]
-enum Token {
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Token {
     /// (
     LeftParens,
     /// )
@@ -89,6 +89,30 @@ enum Token {
     Super
      */
     TokSelf,
+}
+
+fn keyword_or_ident(input: &[u8]) -> Token {
+    match input {
+        b"false" => Token::False,
+        b"true" => Token::True,
+        b"self" => Token::TokSelf,
+        b"struct" => Token::Struct,
+        b"return" => Token::Return,
+        b"loop" => Token::Loop,
+        b"fun" => Token::Fun,
+        // TODO make it a function
+        b"print" => Token::Print,
+        b"or" => Token::Or,
+        b"and" => Token::And,
+        b"for" => Token::For,
+        b"while" => Token::While,
+        b"if" => Token::If,
+        b"else" => Token::Else,
+        // TODO use Option<T>?
+        b"nil" => Token::Nil,
+        b"let" => Token::Let,
+        _ => Token::Identifier,
+    }
 }
 
 #[inline]
@@ -211,28 +235,7 @@ impl<'a> Scanner<'a> {
 
     fn identifier_type(&mut self) -> Result<Token, ScanError> {
         let s = &self.code[self.start..self.cursor];
-        let tok = match s {
-            b"false" => Token::False,
-            b"true" => Token::True,
-            b"self" => Token::TokSelf,
-            b"struct" => Token::Struct,
-            b"return" => Token::Return,
-            b"loop" => Token::Loop,
-            b"fun" => Token::Fun,
-            // TODO make it a function
-            b"print" => Token::Print,
-            b"or" => Token::Or,
-            b"and" => Token::And,
-            b"for" => Token::For,
-            b"while" => Token::While,
-            b"if" => Token::If,
-            b"else" => Token::Else,
-            // TODO use Option<T>?
-            b"nil" => Token::Nil,
-            b"let" => Token::Let,
-            _ => return Err(ScanError::UnknownToken),
-        };
-        Result::Ok(tok)
+        Ok(keyword_or_ident(s))
     }
 
     #[inline]
@@ -355,7 +358,7 @@ impl From<ParseError> for &'static str {
 }
 
 impl Display for ParseError {
-    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }
