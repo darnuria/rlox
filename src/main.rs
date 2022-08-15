@@ -1,6 +1,8 @@
 use core::fmt;
 use std::{env::args, path::Path, fmt::{Display, Formatter}};
 
+mod lexer;
+
 type Value = f64;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
