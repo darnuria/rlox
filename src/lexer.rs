@@ -1,34 +1,52 @@
+// Try https://github.com/fflorent/nom_locate
+// for line num + count + pos
+
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while},
-    character::{
-        complete::{alphanumeric0, digit0, digit1, multispace0},
-        is_alphabetic, is_digit,
-    },
+    character::{complete::multispace0, is_alphabetic, is_digit},
     combinator::value,
     error::ParseError,
     number::complete::float,
     sequence::delimited,
-    IResult,
+    IResult, Offset,
 };
 
+// use nom_locate::LocatedSpan;
+type Span<'a> = nom_locate::LocatedSpan<&'a [u8]>;
 use super::Token;
+
+// struct TokenPos<'a> {
+//     pub position: Span<'a>,
+//     pub token: Token
+// }
+
+pub fn scan_token(input: Span) -> IResult<Span, Token> {
+    alt((
+        comments_multi_line,
+        comments_single_line,
+        numbers,
+        //string, need change in tokens.
+        operators,
+        keywords_and_identifiers,
+    ))(input)
+}
 
 /// TODO: Add lines numbers
 /// Eats // or */
 #[inline]
-pub fn comments_multi_line(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn comments_multi_line(input: Span) -> IResult<Span, Token> {
     let (input, _) = tag("/*")(input)?;
     let (input, _) = take_until("*/")(input)?;
     let (input, _) = tag("*/")(input)?;
-    Ok((input, ()))
+    Ok((input, Token::MultiComment))
 }
 
 #[inline]
-pub fn comments_single_line(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn comments_single_line(input: Span) -> IResult<Span, Token> {
     let (input, _) = tag("//")(input)?;
     let (input, _) = is_not("\n")(input)?;
-    Ok((input, ()))
+    Ok((input, Token::SingleComment))
 }
 
 /// Taken from nom_recipes
@@ -46,106 +64,158 @@ where
 
 // TODO count lines.
 #[inline]
-pub fn string(input: &[u8]) -> IResult<&[u8], (Token, &[u8])> {
+pub fn string(input: Span) -> IResult<Span, Token> {
     let (input, _) = tag("\"")(input)?;
     let (input, string_raw) = take_until("\"")(input)?;
     let (input, _) = tag("\"")(input)?;
-    Ok((input, (Token::String, string_raw)))
+    Ok((input, Token::String))
 }
 
 #[inline]
-pub fn numbers(input: &[u8]) -> IResult<&[u8], (Token, f32)> {
+pub fn numbers(input: Span) -> IResult<Span, Token> {
     let (input, number) = float(input)?;
-    Ok((input, (Token::Number, number)))
+    Ok((input, Token::Number(number)))
 }
 
-/* Delimiters */
-fn left_parens(input: &[u8]) -> IResult<&[u8], Token> {
-    value(Token::LeftParens, tag("("))(input)
-}
-
-fn keywords_and_identifiers(input: &[u8]) -> IResult<&[u8], (Token, &[u8])> {
+fn keywords_and_identifiers(input: Span) -> IResult<Span, Token> {
     let underscore_alphadigit = |c| is_alphabetic(c) || is_digit(c) || c == b'_';
     let (input, ident) = take_while(underscore_alphadigit)(input)?;
-    let token = crate::keyword_or_ident(ident);
+    let token = crate::keyword_or_ident(ident.fragment());
     //.map_err(
     //     //manage userToken
     //     unimplemented!(),
     // );
-    Ok((input, (token, ident)))
+    Ok((input, token))
 }
 
-fn right_parens(input: &[u8]) -> IResult<&[u8], Token> {
+/* Delimiters */
+fn delimiters(input: Span) -> IResult<Span, Token> {
+    alt((
+        left_parens,
+        right_parens,
+        left_square,
+        right_brace,
+        left_brace,
+        right_brace,
+    ))(input)
+}
+
+fn left_parens(input: Span) -> IResult<Span, Token> {
+    value(Token::LeftParens, tag("("))(input)
+}
+
+fn right_parens(input: Span) -> IResult<Span, Token> {
     value(Token::RightParens, tag(")"))(input)
 }
 
-fn left_brace(input: &[u8]) -> IResult<&[u8], Token> {
+fn left_brace(input: Span) -> IResult<Span, Token> {
     value(Token::LeftBrace, tag("{"))(input)
 }
-fn right_brace(input: &[u8]) -> IResult<&[u8], Token> {
+
+fn right_brace(input: Span) -> IResult<Span, Token> {
     value(Token::RightBrace, tag("}"))(input)
 }
 
-/* Punctuation */
-fn semicolon(input: &[u8]) -> IResult<&[u8], Token> {
+fn left_square(input: Span) -> IResult<Span, Token> {
+    value(Token::LeftSquare, tag("["))(input)
+}
+
+fn right_square(input: Span) -> IResult<Span, Token> {
+    value(Token::RightSquare, tag("]"))(input)
+}
+
+/* operators */
+#[inline]
+fn operators(input: Span) -> IResult<Span, Token> {
+    alt((
+        semicolon,
+        equal,
+        comma,
+        greater,
+        slash,
+        minus,
+        lesser,
+        plus,
+        dot,
+        bang,
+        equal,
+        lesser_equal,
+        greater_equal,
+        equal_equal,
+        bang_equal,
+    ))(input)
+}
+
+fn semicolon(input: Span) -> IResult<Span, Token> {
     value(Token::Semicolon, tag(";"))(input)
 }
 
-fn comma(input: &[u8]) -> IResult<&[u8], Token> {
+fn comma(input: Span) -> IResult<Span, Token> {
     value(Token::Comma, tag(","))(input)
 }
 
-fn bang_equal(input: &[u8]) -> IResult<&[u8], Token> {
+fn bang_equal(input: Span) -> IResult<Span, Token> {
     value(Token::BangEqual, tag("!="))(input)
 }
 
-fn equal_equal(input: &[u8]) -> IResult<&[u8], Token> {
+fn equal_equal(input: Span) -> IResult<Span, Token> {
     value(Token::EqualEqual, tag("=="))(input)
 }
 
-fn greater_equal(input: &[u8]) -> IResult<&[u8], Token> {
+fn greater_equal(input: Span) -> IResult<Span, Token> {
     value(Token::GreaterEqual, tag(">="))(input)
 }
 
-fn lesser_equal(input: &[u8]) -> IResult<&[u8], Token> {
+fn lesser_equal(input: Span) -> IResult<Span, Token> {
     value(Token::LesserEqual, tag("<="))(input)
 }
 
 /* Operators unary only.
 If you add something like += please move them to the alt version !
 */
-fn dot(input: &[u8]) -> IResult<&[u8], Token> {
+fn dot(input: Span) -> IResult<Span, Token> {
     value(Token::Dot, tag("."))(input)
 }
 
-fn minus(input: &[u8]) -> IResult<&[u8], Token> {
+fn minus(input: Span) -> IResult<Span, Token> {
     value(Token::Minus, tag("-"))(input)
 }
 
-fn plus(input: &[u8]) -> IResult<&[u8], Token> {
+fn plus(input: Span) -> IResult<Span, Token> {
     value(Token::Plus, tag("+"))(input)
 }
 
-fn slash(input: &[u8]) -> IResult<&[u8], Token> {
+fn slash(input: Span) -> IResult<Span, Token> {
     value(Token::Slash, tag("/"))(input)
 }
 
-fn star(input: &[u8]) -> IResult<&[u8], Token> {
+fn star(input: Span) -> IResult<Span, Token> {
     value(Token::Star, tag("*"))(input)
 }
 
-fn lesser(input: &[u8]) -> IResult<&[u8], Token> {
+fn lesser(input: Span) -> IResult<Span, Token> {
     value(Token::Lesser, tag("<"))(input)
 }
 
-fn greater(input: &[u8]) -> IResult<&[u8], Token> {
+fn greater(input: Span) -> IResult<Span, Token> {
     value(Token::Greater, tag(">"))(input)
 }
 
-fn equal(input: &[u8]) -> IResult<&[u8], Token> {
+fn equal(input: Span) -> IResult<Span, Token> {
     value(Token::Equal, tag("="))(input)
 }
 
-fn bang(input: &[u8]) -> IResult<&[u8], Token> {
+fn bang(input: Span) -> IResult<Span, Token> {
     value(Token::Bang, tag("!"))(input)
+}
+
+#[test]
+fn number_sigle() {
+    let code = Span::new(br#"0"#);
+
+    let (span, tok) = scan_token(code).unwrap();
+    assert_eq!(tok, Token::Number(0.));
+    assert_eq!(span.location_offset(), 1);
+    assert_eq!(span.location_line(), 1);
+    assert_eq!(span.fragment(), b"");
 }
