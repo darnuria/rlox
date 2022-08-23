@@ -282,4 +282,17 @@ mod test_lexer {
         let code = assert_token_span(code, Token::Return, 53, 1);
         let _ = assert_token_span(code, Token::While, 62, 1);
     }
+
+    #[test]
+    fn test_scan_math() {
+        let code = br#"+ > >= <= < =="#;
+        let code = Span::new(code);
+
+        let code = assert_token_span(code, Token::Plus, 1, 1);
+        let code = assert_token_span(code, Token::Greater, 1, 1);
+        let code = assert_token_span(code, Token::GreaterEqual, 1, 2);
+        let code = assert_token_span(code, Token::LesserEqual, 1, 2);
+        let code = assert_token_span(code, Token::Lesser, 1, 1);
+        let code = assert_token_span(code, Token::EqualEqual, 1, 2);
+    }
 }
