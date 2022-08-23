@@ -26,7 +26,7 @@ pub fn scan_token(input: Span) -> IResult<Span, Token> {
         comments_multi_line,
         comments_single_line,
         numbers,
-        //string, need change in tokens.
+        string, // need change in tokens.
         operators,
         delimiters,
         keywords_and_identifiers,
@@ -214,19 +214,26 @@ fn bang(input: Span) -> IResult<Span, Token> {
 
 #[cfg(test)]
 mod test_lexer {
+    use crate::ScanError;
+
     use super::*;
     //    use nom_locate::LocatedSpan;
 
-    fn assert_token_span(code: Span, expected: Token, offset: usize, line: u32) -> Span {
+    fn assert_token_span(
+        code: Span,
+        expected: Token,
+        offset: usize,
+        line: u32,
+    ) -> IResult<Span, Token> {
         let span = code;
         let ret = scan_token(span);
-        let (span, tok) = ret.unwrap();
+        let (span, tok) = ret?;
         assert_eq!(tok, expected, "Token didn't match.");
         // todo debug space eating.
         //assert_eq!(span.location_offset(), offset, "Offset not equals.");
         assert_eq!(span.location_line(), line, "Line count different.");
         //assert_eq!(span.fragment(), &&code[offset..]);
-        span
+        Ok((span, tok))
     }
 
     #[test]
@@ -262,36 +269,91 @@ mod test_lexer {
     #[test]
     fn test_scan_tok_real() {
         let code = br#"if else fun, self print and for let nil loop return while"#;
+        let expected = [
+            (Token::If, 3, 1),
+            // need rework
+            // (code, Token::String, 7, 1);
+            (Token::Else, 7, 1),
+            (Token::Fun, 4, 1),
+            (Token::Comma, 20, 1),
+            (Token::TokSelf, 21, 1),
+            (Token::Print, 26, 1),
+            (Token::And, 32, 1),
+            (Token::For, 36, 1),
+            (Token::Let, 41, 1),
+            (Token::Nil, 44, 1),
+            (Token::Loop, 48, 1),
+            (Token::Return, 53, 1),
+            (Token::While, 62, 1),
+        ];
 
-        let code = Span::new(code);
-        let code = assert_token_span(code, Token::If, 3, 1);
-        println!("{:?}", std::str::from_utf8(code.fragment()));
-        let code = assert_token_span(code, Token::Else, 7, 1);
-        let code = assert_token_span(code, Token::Fun, 4, 1);
-        // need rework
-        // let code = assert_token_span(code, Token::String, 7, 1);
-        let code = assert_token_span(code, Token::Comma, 20, 1);
-        let code = assert_token_span(code, Token::TokSelf, 21, 1);
-        let code = assert_token_span(code, Token::Print, 26, 1);
-        let code = assert_token_span(code, Token::And, 32, 1);
-        let code = assert_token_span(code, Token::For, 36, 1);
-        let code = assert_token_span(code, Token::Let, 41, 1);
-        let code = assert_token_span(code, Token::Nil, 44, 1);
-        let code = assert_token_span(code, Token::Loop, 48, 1);
-        let code = assert_token_span(code, Token::Return, 53, 1);
-        let _ = assert_token_span(code, Token::While, 62, 1);
+        let mut code = Span::new(code);
+        for (token, offset, line) in expected {
+            code = assert_token_span(code, token, offset, line)
+                .expect("Should have been parsed.")
+                .0;
+        }
     }
 
     #[test]
     fn test_scan_math() {
         let code = br#"+ > >= <= < =="#;
-        let code = Span::new(code);
+        let expected = [
+            (Token::Plus, 1, 1),
+            (Token::Greater, 1, 1),
+            (Token::GreaterEqual, 1, 1),
+            (Token::LesserEqual, 1, 1),
+            (Token::Lesser, 1, 1),
+            (Token::EqualEqual, 1, 1),
+        ];
 
-        let code = assert_token_span(code, Token::Plus, 1, 1);
-        let code = assert_token_span(code, Token::Greater, 1, 1);
-        let code = assert_token_span(code, Token::GreaterEqual, 1, 1);
-        let code = assert_token_span(code, Token::LesserEqual, 1, 1);
-        let code = assert_token_span(code, Token::Lesser, 1, 1);
-        let code = assert_token_span(code, Token::EqualEqual, 1, 1);
+        let mut code = Span::new(code);
+        for (token, offset, line) in expected {
+            code = assert_token_span(code, token, offset, line)
+                .expect("Should have been parsed.")
+                .0;
+        }
+    }
+
+    #[test]
+    fn test_token_no_string() {
+        let code = br#"NoString"#;
+        let code = Span::new(code);
+        let ret = scan_token(code);
+        assert!(string(code).is_err());
+        // assert_eq!(ret, Err(ScanError::UnknownToken));
+    }
+
+    #[test]
+    fn test_token_string() {
+        let code = b"\"test\"";
+        let code = Span::new(code);
+        assert_token_span(code, Token::String, 6, 1).expect("Should have been parsed.");
+    }
+
+    #[test]
+    fn test_unmatched_string() {
+        let code = b"\"";
+        let code = Span::new(code);
+        let ret = scan_token(code);
+        assert!(string(code).is_err());
+        // assert_eq!(ret, Err(ScanError::UnmatchedString));
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let code = br#""""#;
+
+        let code = Span::new(code);
+        assert_token_span(code, Token::String, 2, 1).expect("Should have been parsed.");
+    }
+
+    #[test]
+    fn test_unmatched_char() {
+        let code = br#"e""#;
+
+        let code = Span::new(code);
+        // assert_token_span(code, Err(ScanError::UnknownToken));
+        assert!(string(code).is_err());
     }
 }

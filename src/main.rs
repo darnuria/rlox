@@ -353,7 +353,7 @@ impl<'a> Scanner<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ScanError {
+pub enum ScanError {
     UnknownToken,
     UnmatchedString,
     NumberNotRecognized,
