@@ -132,9 +132,12 @@ fn right_square(input: Span) -> IResult<Span, Token> {
 fn operators(input: Span) -> IResult<Span, Token> {
     alt((
         semicolon,
-        equal,
         comma,
         star,
+        lesser_equal,
+        greater_equal,
+        equal_equal,
+        bang_equal,
         greater,
         slash,
         minus,
@@ -143,10 +146,6 @@ fn operators(input: Span) -> IResult<Span, Token> {
         dot,
         bang,
         equal,
-        lesser_equal,
-        greater_equal,
-        equal_equal,
-        bang_equal,
     ))(input)
 }
 
@@ -290,9 +289,9 @@ mod test_lexer {
 
         let code = assert_token_span(code, Token::Plus, 1, 1);
         let code = assert_token_span(code, Token::Greater, 1, 1);
-        let code = assert_token_span(code, Token::GreaterEqual, 1, 2);
-        let code = assert_token_span(code, Token::LesserEqual, 1, 2);
+        let code = assert_token_span(code, Token::GreaterEqual, 1, 1);
+        let code = assert_token_span(code, Token::LesserEqual, 1, 1);
         let code = assert_token_span(code, Token::Lesser, 1, 1);
-        let code = assert_token_span(code, Token::EqualEqual, 1, 2);
+        let code = assert_token_span(code, Token::EqualEqual, 1, 1);
     }
 }
