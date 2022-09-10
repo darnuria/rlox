@@ -258,6 +258,7 @@ fn delimiters(input: Span) -> IResult<Span, Token> {
     alt((
         left_parens,
         right_parens,
+        right_square,
         left_square,
         right_brace,
         left_brace,
