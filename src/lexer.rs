@@ -1,9 +1,7 @@
 // Try https://github.com/fflorent/nom_locate
 // for line num + count + pos
 use core::fmt;
-use std::{
-    fmt::{Display, Formatter},
-};
+use std::fmt::{Display, Formatter};
 
 use nom::{
     branch::alt,

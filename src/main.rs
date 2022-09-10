@@ -1,8 +1,5 @@
 use core::fmt;
-use std::{
-    env::args,
-    path::Path,
-};
+use std::{env::args, path::Path};
 
 // Should compile but not used now.
 //mod hand_lexer;
@@ -191,7 +188,11 @@ impl VirtualMachine {
             match lexer::scan_token(code) {
                 Ok((next_code, token)) => {
                     code = next_code;
-                    println!("Token: {token:#?} {} {}", next_code.location_line(), next_code.location_offset());
+                    println!(
+                        "Token: {token:#?} {} {}",
+                        next_code.location_line(),
+                        next_code.location_offset()
+                    );
                 }
                 //Err(ScanError::End) => unimplemented!("End of file!"),
                 Err(_) => return Err(InterpretError::Compile),
