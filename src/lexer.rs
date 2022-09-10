@@ -1,11 +1,8 @@
 // Try https://github.com/fflorent/nom_locate
 // for line num + count + pos
 use core::fmt;
-use std::str::FromStr;
 use std::{
-    env::args,
     fmt::{Display, Formatter},
-    path::Path,
 };
 
 use nom::{

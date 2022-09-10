@@ -1,12 +1,9 @@
 use core::fmt;
-use std::str::FromStr;
 use std::{
     env::args,
-    fmt::{Display, Formatter},
     path::Path,
 };
 
-use nom::AsBytes;
 // Should compile but not used now.
 //mod hand_lexer;
 mod lexer;
@@ -181,8 +178,6 @@ impl VirtualMachine {
                     self.stack.push(*litteral as Value);
                     println!("{}", litteral)
                 }
-
-                _ => unimplemented!(),
             }
             ip += 1;
             println!("{:?}", self.stack);
