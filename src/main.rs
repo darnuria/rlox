@@ -200,7 +200,6 @@ impl VirtualMachine {
                 Err(_) => return Err(InterpretError::Compile),
             }
         }
-        unimplemented!("Meh")
     }
 
     fn run_file<P: AsRef<Path>>(&mut self, source_code: P) -> Result<(), InterpretError> {
@@ -209,8 +208,9 @@ impl VirtualMachine {
         unimplemented!()
     }
 
-    fn eval(&mut self, _code: &str) -> Result<(), InterpretError> {
-        unimplemented!()
+    fn eval(&mut self, code: &str) -> Result<(), InterpretError> {
+        let _chunck = self.compile(code)?;
+        Ok(())
     }
 
     fn repl(mut self) -> Result<(), InterpretError> {
