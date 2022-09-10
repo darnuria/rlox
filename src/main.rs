@@ -1,5 +1,6 @@
 use core::fmt;
 use std::{env::args, path::Path};
+use std::io::Write;
 
 // Should compile but not used now.
 //mod hand_lexer;
@@ -119,7 +120,8 @@ struct VirtualMachine {
 enum InterpretError {
     Compile,
     Runtime,
-    STDINnError,
+    StdinError,
+    StdoutError,
     StackUnderflow,
 }
 
@@ -213,11 +215,14 @@ impl VirtualMachine {
 
     fn repl(mut self) -> Result<(), InterpretError> {
         let mut buffer = String::with_capacity(1024);
+        let mut stdout = std::io::stdout();
+        let stdin = std::io::stdin();
         loop {
-            print!(">>>");
-            std::io::stdin()
+            print!(">>> ");
+            stdout.flush().map_err(|_| InterpretError::StdoutError)?;
+            stdin
                 .read_line(&mut buffer)
-                .map_err(|_| InterpretError::STDINnError)?;
+                .map_err(|_| InterpretError::StdinError)?;
             println!();
             self.eval(&buffer)?;
         }
