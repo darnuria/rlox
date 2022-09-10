@@ -1,5 +1,12 @@
 // Try https://github.com/fflorent/nom_locate
 // for line num + count + pos
+use core::fmt;
+use std::str::FromStr;
+use std::{
+    env::args,
+    fmt::{Display, Formatter},
+    path::Path,
+};
 
 use nom::{
     branch::alt,
@@ -13,13 +20,168 @@ use nom::{
 };
 
 // use nom_locate::LocatedSpan;
-type Span<'a> = nom_locate::LocatedSpan<&'a [u8]>;
-use super::Token;
+pub type Span<'a> = nom_locate::LocatedSpan<&'a [u8]>;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Token {
+    /// (
+    LeftParens,
+    /// )
+    RightParens,
+    /// {
+    LeftBrace,
+    /// }
+    RightBrace,
+    /// [
+    LeftSquare,
+    /// ]
+    RightSquare,
+    /// ,
+    Comma,
+    /// .
+    Dot,
+    /// -
+    Minus,
+    /// +
+    Plus,
+    /// ;
+    Semicolon,
+    /// /
+    Slash,
+    /// *
+    Star,
+
+    /// !
+    Bang,
+    /// !=
+    BangEqual,
+    /// =
+    Equal,
+    /// ==
+    EqualEqual,
+    /// >
+    Greater,
+    /// <=
+    GreaterEqual,
+    /// <
+    Lesser,
+    /// >=
+    LesserEqual,
+
+    // Litterals
+    /// ???
+    //    Identifier(&'a [u8]),
+    IdentifierNoData,
+    /// "[.]*"
+    String,
+    /// 0-9
+    Number(f32),
+
+    // KEYWORDS
+    /// and
+    And,
+    /// or
+    Or,
+    /// struct / class
+    Struct,
+    /// if
+    If,
+    /// else
+    Else,
+    /// true
+    True,
+    /// false
+    False,
+    /// Function
+    Fun,
+    /// Loop
+    Loop,
+    /// While
+    While,
+    /// For
+    For,
+    /// Nil
+    Nil,
+    /// Return
+    Return,
+    /// let
+    Let,
+    /// print
+    Print,
+    /*
+    Class,
+    Super
+     */
+    TokSelf,
+
+    SingleComment,
+    MultiComment,
+}
+
+struct Parser {
+    current: Token,
+    previous: Token,
+}
 
 // struct TokenPos<'a> {
 //     pub position: Span<'a>,
 //     pub token: Token
 // }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ScanError {
+    UnknownToken,
+    UnmatchedString,
+    NumberNotRecognized,
+    End,
+}
+
+enum RloxParseError {
+    TooManyConstant,
+    UnclosedParens,
+    ExpectedExpression,
+}
+
+impl From<RloxParseError> for &'static str {
+    fn from(err: RloxParseError) -> Self {
+        match err {
+            RloxParseError::TooManyConstant => "Too many constants in one chunk.",
+            RloxParseError::UnclosedParens => "Expect ')' after expression.",
+            RloxParseError::ExpectedExpression => "Expect expression.",
+        }
+    }
+}
+
+impl Display for RloxParseError {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
+pub fn keyword_or_ident(input: &[u8]) -> Token {
+    match input {
+        b"false" => Token::False,
+        b"true" => Token::True,
+        b"self" => Token::TokSelf,
+        b"struct" => Token::Struct,
+        b"return" => Token::Return,
+        b"loop" => Token::Loop,
+        b"fun" => Token::Fun,
+        // TODO make it a function
+        b"print" => Token::Print,
+        b"or" => Token::Or,
+        b"and" => Token::And,
+        b"for" => Token::For,
+        b"while" => Token::While,
+        b"if" => Token::If,
+        b"else" => Token::Else,
+        // TODO use Option<T>?
+        b"nil" => Token::Nil,
+        b"let" => Token::Let,
+        _ => Token::IdentifierNoData,
+        //dent => Token::Identifier(ident),
+    }
+}
 
 pub fn scan_token(input: Span) -> IResult<Span, Token> {
     let inner = alt((
@@ -83,7 +245,7 @@ pub fn numbers(input: Span) -> IResult<Span, Token> {
 fn keywords_and_identifiers(input: Span) -> IResult<Span, Token> {
     let underscore_alphadigit = |c| is_alphabetic(c) || is_digit(c) || c == b'_';
     let (input, ident) = take_while(underscore_alphadigit)(input)?;
-    let token = crate::keyword_or_ident(ident.fragment());
+    let token = keyword_or_ident(ident.fragment());
     //.map_err(
     //     //manage userToken
     //     unimplemented!(),
@@ -214,8 +376,6 @@ fn bang(input: Span) -> IResult<Span, Token> {
 
 #[cfg(test)]
 mod test_lexer {
-    use crate::ScanError;
-
     use super::*;
     //    use nom_locate::LocatedSpan;
 
