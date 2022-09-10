@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 use nom::{
     branch::alt,
-    bytes::complete::{is_not, tag, take_until, take_while},
+    bytes::complete::{is_not, tag, take_until, take_while, take},
     character::{complete::multispace0, is_alphabetic, is_digit},
     combinator::value,
     error::ParseError,
@@ -111,6 +111,9 @@ pub enum Token<'a> {
 
     SingleComment,
     MultiComment,
+
+    Unknown,
+    EOF,
 }
 
 struct Parser<'a> {
@@ -155,6 +158,7 @@ impl Display for RloxParseError {
 
 pub fn keyword_or_ident(input: &[u8]) -> Token {
     match input {
+        b"" => Token::EOF,
         b"false" => Token::False,
         b"true" => Token::True,
         b"self" => Token::TokSelf,
@@ -187,6 +191,7 @@ pub fn scan_token(input: Span) -> IResult<Span, Token> {
         operators,
         delimiters,
         keywords_and_identifiers,
+        unknown,
     ));
 
     delimited(multispace0, inner, multispace0)(input)
@@ -370,6 +375,10 @@ fn bang(input: Span) -> IResult<Span, Token> {
     value(Token::Bang, tag("!"))(input)
 }
 
+fn unknown(input: Span) -> IResult<Span, Token> {
+    nom::combinator::map(take(1usize), |_| Token::Unknown)(input)
+}
+
 #[cfg(test)]
 mod test_lexer {
     use super::*;
@@ -395,31 +404,31 @@ mod test_lexer {
     #[test]
     fn number_sigle() {
         let code = br#"0"#;
-        assert_token_span(Span::new(code), Token::Number(0.), 1, 1);
+        assert_token_span(Span::new(code), Token::Number(0.), 1, 1).unwrap();
     }
 
     #[test]
     fn test_number_lenght() {
         let code = br#"123456789"#;
-        assert_token_span(Span::new(code), Token::Number(123456789.), 9, 1);
+        assert_token_span(Span::new(code), Token::Number(123456789.), 9, 1).unwrap();
     }
 
     #[test]
     fn test_number_end_fractionnal() {
         let code = br#"123456789."#;
-        assert_token_span(Span::new(code), Token::Number(123456789.), 10, 1);
+        assert_token_span(Span::new(code), Token::Number(123456789.), 10, 1).unwrap();
     }
 
     #[test]
     fn test_number_fractional_part() {
         let code = br#"12345.6789"#;
-        assert_token_span(Span::new(code), Token::Number(12345.6789), 10, 1);
+        assert_token_span(Span::new(code), Token::Number(12345.6789), 10, 1).unwrap();
     }
 
     #[test]
     fn test_keyword_alone() {
         let code = b"if";
-        assert_token_span(Span::new(code), Token::If, 2, 1);
+        assert_token_span(Span::new(code), Token::If, 2, 1).unwrap();
     }
 
     #[test]

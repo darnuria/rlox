@@ -195,6 +195,9 @@ impl VirtualMachine {
                         next_code.location_line(),
                         next_code.location_offset()
                     );
+                    if let lexer::Token::EOF = token {
+                        return Err(InterpretError::Compile);
+                    }
                 }
                 //Err(ScanError::End) => unimplemented!("End of file!"),
                 Err(_) => return Err(InterpretError::Compile),
