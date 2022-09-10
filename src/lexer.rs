@@ -375,12 +375,12 @@ mod test_lexer {
     use super::*;
     //    use nom_locate::LocatedSpan;
 
-    fn assert_token_span(
-        code: Span,
-        expected: Token,
+    fn assert_token_span<'a>(
+        code: Span<'a>,
+        expected: Token<'a>,
         offset: usize,
         line: u32,
-    ) -> IResult<Span, Token> {
+    ) -> IResult<Span<'a>, Token<'a>> {
         let span = code;
         let ret = scan_token(span);
         let (span, tok) = ret?;
@@ -484,7 +484,7 @@ mod test_lexer {
     fn test_token_string() {
         let code = b"\"test\"";
         let code = Span::new(code);
-        assert_token_span(code, Token::String, 6, 1).expect("Should have been parsed.");
+        assert_token_span(code, Token::String(b"test"), 6, 1).expect("Should have been parsed.");
     }
 
     #[test]
@@ -501,7 +501,7 @@ mod test_lexer {
         let code = br#""""#;
 
         let code = Span::new(code);
-        assert_token_span(code, Token::String, 2, 1).expect("Should have been parsed.");
+        assert_token_span(code, Token::String(b""), 2, 1).expect("Should have been parsed.");
     }
 
     #[test]
