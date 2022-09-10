@@ -20,7 +20,7 @@ use nom::{
 pub type Span<'a> = nom_locate::LocatedSpan<&'a [u8]>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Token {
+pub enum Token<'a> {
     /// (
     LeftParens,
     /// )
@@ -70,7 +70,7 @@ pub enum Token {
     //    Identifier(&'a [u8]),
     IdentifierNoData,
     /// "[.]*"
-    String,
+    String(&'a [u8]),
     /// 0-9
     Number(f32),
 
@@ -115,9 +115,9 @@ pub enum Token {
     MultiComment,
 }
 
-struct Parser {
-    current: Token,
-    previous: Token,
+struct Parser<'a> {
+    current: Token<'a>,
+    previous: Token<'a>,
 }
 
 // struct TokenPos<'a> {
@@ -230,7 +230,7 @@ pub fn string(input: Span) -> IResult<Span, Token> {
     let (input, _) = tag("\"")(input)?;
     let (input, string_raw) = take_until("\"")(input)?;
     let (input, _) = tag("\"")(input)?;
-    Ok((input, Token::String))
+    Ok((input, Token::String(&string_raw)))
 }
 
 #[inline]
