@@ -5,6 +5,7 @@ use std::io::Write;
 // Should compile but not used now.
 //mod hand_lexer;
 mod lexer;
+mod compiler;
 
 type Value = f64;
 
@@ -59,9 +60,11 @@ impl Chunk {
         }
     }
 
-    fn write_value(&mut self, v: Value) {
+    fn write_value(&mut self, v: Value) -> u8 {
         self.values.push(v);
+        (self.values.len() - 1) as u8
     }
+
     // Write an opcode, one at a time.
     fn write_opcode(&mut self, op: Opcode, line: u16) {
         self.code.push(op);

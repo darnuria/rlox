@@ -9,7 +9,7 @@ use nom::{
     character::{complete::multispace0, is_alphabetic, is_digit},
     combinator::value,
     error::ParseError,
-    number::complete::float,
+    number::complete::{double},
     sequence::delimited,
     IResult, Offset,
 };
@@ -70,7 +70,7 @@ pub enum Token<'a> {
     /// "[.]*"
     String(&'a [u8]),
     /// 0-9
-    Number(f32),
+    Number(f64),
 
     // KEYWORDS
     /// and
@@ -238,7 +238,7 @@ pub fn string(input: Span) -> IResult<Span, Token> {
 
 #[inline]
 pub fn numbers(input: Span) -> IResult<Span, Token> {
-    let (input, number) = float(input)?;
+    let (input, number) = double(input)?;
     Ok((input, Token::Number(number)))
 }
 
